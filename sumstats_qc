@@ -1,0 +1,62 @@
+# make header for renaming columns
+# if sumstats have beta
+echo SNP$'\t'A1$'\t'A2$'\t'BETA$'\t'P > header1
+# if sumstats have OR
+echo SNP$'\t'A1$'\t'A2$'\t'OR$'\t'P > header2
+
+# change these every time
+
+sst=/path/to/sumstatsfile.gz
+
+trait=trait_name
+
+
+## =============================================================================== ##
+# peek at sumstats to see where columns are
+
+zcat ${sst} | head -n 1 
+
+# if some traits are vcf, if so need to remove header, number to tail will change prob every time
+
+# different first line options if files are xxx.vcf.gz, xxx.gz or xxx.txt
+# these lines (in order): uncompress sumstats file, create an MAF column, filter based on newly made MAF column, remove ambiguous SNPs
+
+# need to change the column refs ($numbers) depending on where your effect allele freq/ 'freq'/ whatever column is (here its $10, column 10) 
+
+
+# zcat ${sst} | tail -n +73 | \ 
+zcat ${sst} | \
+# cat ${sst} | \
+awk -F ' ' '{if($10>=0.5) print $0" "1-$10;else if($10<0.5)print $0" "$10}' | \
+awk 'NR==1 || ($NF > 0.01) && ($NF < 0.99) {print}' | \
+awk '!( ($4=="A" && $5=="T") || \
+        ($4=="T" && $5=="A") || \
+        ($4=="G" && $5=="C") || \
+        ($4=="C" && $5=="G")) {print}' | \
+awk '{print $1"\t"$2"\t"$4"\t"$5"\t"$6"\t"$8}' > ${trait}_sumstats
+
+
+# CHR SNP A1 A2 BETA(or OR) P will be columns in ${trait}_sumstats
+
+
+# ======================================================================== #
+
+# look to see which header needed 
+
+zcat ${sst} | head -n 1
+
+cat header1
+cat header2
+
+# ======================================================================== #
+# split sumstats by CHR then remove CHR column, attach header 
+
+# for i in {1..22}
+do 
+awk '$1 == '${i}'' ${trait}_sumstats | cut -d$'\t' -f2- | cat header1 - > ${trait}_sumstats_${i}
+done
+
+# ======================================================================== #
+
+
+rm ${trait}_sumstats
