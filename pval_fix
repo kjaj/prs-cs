@@ -1,0 +1,4 @@
+# fixing P val if theyre -log10 transformed
+
+var=$(awk '{ print 10**-$6 }' < ${trait}_sumstats)
+paste -d ' ' ${trait}_sumstats <(printf "%s\n" $var)  | tail -n +2 | awk '{print $1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$7}' > ${trait}_sumstats2
