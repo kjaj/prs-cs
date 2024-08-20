@@ -1,0 +1,6 @@
+# if need mean of Neff or similar (CHECK which COLUMN, in this example column 13 is the per snp Neff)
+
+# mean Neff, or N across all SNPs in full sumstats
+
+zcat ${sst} | tail -n +73 | \ # or other appropriate 1st line see sumstats_qc
+awk '{ total += $13 } END { print total/NR }' 
