@@ -1,0 +1,74 @@
+# set paths
+dir1=/gpfs/gibbs/pi/huckins/software/PRScs/
+
+dir2=/path/to/your/target/data/bim_prefix
+
+n1=GWAS_sample_size
+# sample N GWAS note needs to be whole number CHECK EACH RUN
+
+
+mkdir basic_output/${trait}
+# ======================================================================== #
+# make one .sh script per chrom
+
+for i in {1..22}
+do
+echo '#!/bin/bash
+#SBATCH --partition=day
+#SBATCH --mem=400g
+#SBATCH --cpus-per-task=4
+#SBATCH -t 1380:00
+#SBATCH -o '${trait}'_chr'${i}'_prscs.log
+
+ml Python
+ml SciPy-bundle/2023.02-gfbf-2022b
+ml h5py
+
+N_THREADS=1
+
+export MKL_NUM_THREADS=$N_THREADS
+export NUMEXPR_NUM_THREADS=$N_THREADS
+export OMP_NUM_THREADS=$N_THREADS
+
+python '${dir1}'PRScs.py --ref_dir='${dir1}'ldblk_1kg_eur \
+--bim_prefix='${dir2}' \
+--sst_file='${trait}'_sumstats_'${i}' \
+--n_gwas='${n1}' \
+--chrom='${i}' \
+--phi=1e-2 \
+--out_dir=basic_output/'${trait}'/'${trait}'' > scripts/${trait}_chr${i}_prscs.sh
+done
+
+# =========================================================================== #
+
+# run all the scripts
+# should take << 5 min to run for all chroms (for N ~ 300 participants)
+
+echo $trait
+
+for i in {1..22}
+do
+sbatch scripts/${trait}_chr${i}_prscs.sh
+done
+
+# =========================================================================== #
+# putting results from all chromosomes together & using plink 'score' 
+
+cat basic_output/${trait}/*.txt > ${trait}_prscs_allChrom
+
+plink2 --bfile batches.imputed.merged.filt.noduplsamples.rsid \
+--score ${trait}_prscs_allChrom  2 4 6 cols=+scoresums --out ${trait}
+
+# =========================================================================== #
+# standardize 
+
+echo $trait
+Rscript ./scripts/prscs_scale.R ${trait}
+
+# =========================================================================== #
+# tidy up and reset the 'trait' and 'sst' to a random placeholder so you dont overwrite (if making scores for multiple traits)
+rm ${trait}.sscore
+rm ${trait}_prscs_allChrom
+mv *.log logs
+trait=STOP111
+sst=STOP111
